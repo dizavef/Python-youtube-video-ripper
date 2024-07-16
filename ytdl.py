@@ -19,18 +19,17 @@ def download_video(video_url, output_path):
     try:
         response = requests.get(video_url)
         if response.status_code == 200:
-            video_data = response.content
             video_filename = os.path.join(output_path, f"{datetime.now().strftime('%Y%m%d%H%M%S')}.mp4")
             with open(video_filename, 'wb') as f:
-                f.write(video_data)
+                f.write(response.content)
             print(f"Downloaded video from {video_url}")
-            return True
+            return video_filename
         else:
             print(f"Failed to download video from {video_url}. Status code: {response.status_code}")
-            return False
+            return None
     except requests.RequestException as e:
         print(f"Error downloading video {video_url}: {e}")
-        return False
+        return None
 
 # Function to load the index file
 def load_index(index_file):
@@ -69,7 +68,7 @@ def main():
     index_data = load_index(index_file)
     if not index_data:
         with open(index_file, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, fieldnames=['url', 'title', 'publish_date', 'status', 'last_checked'])
+            writer = csv.DictWriter(file, fieldnames=['url', 'title', 'publish_date', 'status', 'last_checked', 'filename'])
             writer.writeheader()
 
     # Convert index data to a dictionary for quick lookup
@@ -93,7 +92,8 @@ def main():
                 'title': sanitized_title,
                 'publish_date': entry.published,
                 'status': 'pending',
-                'last_checked': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                'last_checked': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'filename': ''
             }
             print(f"Added new video to index: {sanitized_title}")
 
@@ -101,8 +101,10 @@ def main():
         output_directory = shorts_folder if 'short' in sanitized_title.lower() else videos_folder
 
         # Download video
-        if download_video(video_url, output_directory):
+        video_filename = download_video(video_url, output_directory)
+        if video_filename:
             index_dict[video_url]['status'] = 'complete'
+            index_dict[video_url]['filename'] = video_filename
         else:
             index_dict[video_url]['status'] = 'failed'
 
